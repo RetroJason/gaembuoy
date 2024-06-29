@@ -3,19 +3,16 @@
 #include "gb.h"
 #include "sdl.h"
 
-int launch(int argc, char **argv) {
+#include "retro_heap.h"
+
+int launch(const char* rom) {
      struct gb *gb;
-     const char *rom_file;
      unsigned i;
 
-     if (argc < 2) {
-          fprintf(stderr, "Usage: %s <rom>\n", argv[0]);
-          return EXIT_FAILURE;
-     }
 
      /* Our context contains semaphores, so we allocate it on the heap so that
       * it remains visible to all threads no matter what. */
-     gb = calloc(1, sizeof(*gb));
+     gb = rh_calloc(1, sizeof(*gb));
      if (gb == NULL) {
           perror("calloc failed");
           return EXIT_FAILURE;
@@ -36,9 +33,8 @@ int launch(int argc, char **argv) {
 
      gb_sdl_frontend_init(gb);
 
-     rom_file = argv[1];
 
-     gb_cart_load(gb, rom_file);
+     gb_cart_load(gb, rom);
      gb_sync_reset(gb);
      gb_irq_reset(gb);
      gb_cpu_reset(gb);
@@ -65,7 +61,7 @@ int launch(int argc, char **argv) {
      gb->frontend.destroy(gb);
      gb_cart_unload(gb);
 
-     free(gb);
+     rh_free(gb);
 
      return 0;
 }

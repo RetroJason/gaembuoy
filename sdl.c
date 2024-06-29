@@ -252,7 +252,7 @@ static void gb_sdl_destroy(struct gb *gb) {
 //     SDL_DestroyRenderer(ctx->renderer);
 //     SDL_DestroyWindow(ctx->window);
 //     SDL_Quit();
-//     free(ctx);
+     rh_free(ctx);
      gb->frontend.data = NULL;
 }
 

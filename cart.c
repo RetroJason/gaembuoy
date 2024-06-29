@@ -5,6 +5,8 @@
 #include <errno.h>
 #include "gb.h"
 
+#include "retro_heap.h"
+
 /* 16KB ROM banks */
 #define GB_ROM_BANK_SIZE (16 * 1024)
 /* 8KB RAM banks */
@@ -94,7 +96,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      }
 
      cart->rom_length = l;
-     cart->rom = calloc(1, cart->rom_length);
+     cart->rom = rh_calloc(1, cart->rom_length);
      if (cart->rom == NULL) {
           perror("Can't allocate ROM buffer");
           goto error;
@@ -248,7 +250,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
 
      /* Allocate RAM buffer */
      if (cart->ram_length > 0) {
-          cart->ram = calloc(1, cart->ram_length);
+          cart->ram = rh_calloc(1, cart->ram_length);
           if (cart->ram == NULL) {
                perror("Can't allocate RAM buffer");
                goto error;
@@ -266,7 +268,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
           FILE *f;
           size_t pos;
 
-          cart->save_file = malloc(path_len + strlen(".sav"));
+          cart->save_file = rh_malloc(path_len + strlen(".sav"));
           if (cart->save_file == NULL) {
                perror("malloc failed");
                goto error;
@@ -334,17 +336,17 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
 
 error:
      if (cart->rom) {
-          free(cart->rom);
+          rh_free(cart->rom);
           cart->rom = NULL;
      }
 
      if (cart->ram) {
-          free(cart->ram);
+          rh_free(cart->ram);
           cart->ram = NULL;
      }
 
      if (cart->save_file) {
-          free(cart->save_file);
+          rh_free(cart->save_file);
      }
 
      if (f) {
@@ -401,16 +403,16 @@ void gb_cart_unload(struct gb *gb) {
      gb_cart_ram_save(gb);
 
      if (cart->save_file) {
-          free(cart->save_file);
+          rh_free(cart->save_file);
      }
 
      if (cart->rom) {
-          free(cart->rom);
+          rh_free(cart->rom);
           cart->rom = NULL;
      }
 
      if (cart->ram) {
-          free(cart->ram);
+          rh_free(cart->ram);
           cart->ram = NULL;
      }
 }
