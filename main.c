@@ -3,7 +3,7 @@
 #include "gb.h"
 #include "sdl.h"
 
-int main(int argc, char **argv) {
+int launch(int argc, char **argv) {
      struct gb *gb;
      const char *rom_file;
      unsigned i;
@@ -30,8 +30,8 @@ int main(int argc, char **argv) {
           /* We initialize the buffers by saying that they're ready to be sent
            * to the frontend. This way the frontend won't starve for audio while
            * we start the emulation. */
-          sem_init(&buf->free, 0, 0);
-          sem_init(&buf->ready, 0, 1);
+          //sem_init(&buf->free, 0, 0);
+          //sem_init(&buf->ready, 0, 1);
      }
 
      gb_sdl_frontend_init(gb);

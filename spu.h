@@ -23,11 +23,11 @@ struct gb_spu_sample_buffer {
      int16_t samples[GB_SPU_SAMPLE_BUFFER_LENGTH][2];
      /* Semaphore set to 1 when the frontend is done sending the audio buffer
       * and reset to 0 when the SPU starts filling it with new samples. */
-     sem_t free;
+     //sem_t free;
      /* Semaphore set to 1 when the SPU is done filling a buffer and it can be
       * sent by the frontend. Set to 0 by the frontend when it starts sending
       * the samples. */
-     sem_t ready;
+     //sem_t ready;
 };
 
 /* Duration works the same for all 4 sounds but the max values are different */

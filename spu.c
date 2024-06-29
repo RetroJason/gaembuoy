@@ -480,7 +480,7 @@ static void gb_spu_send_sample_to_frontend(struct gb *gb,
            * buffer is free. If it's not this will pause the thread until
            * the frontend frees it, effectively synchronizing us with audio
            */
-          sem_wait(&buf->free);
+     //     sem_wait(&buf->free);
      }
 
      buf->samples[spu->sample_index][0] = sample_l;
@@ -489,7 +489,7 @@ static void gb_spu_send_sample_to_frontend(struct gb *gb,
      spu->sample_index++;
      if (spu->sample_index == GB_SPU_SAMPLE_BUFFER_LENGTH) {
           /* We're done with this buffer */
-          sem_post(&buf->ready);
+   //       sem_post(&buf->ready);
           /* Move on to the next one */
           spu->buffer_index = (spu->buffer_index + 1)
                % GB_SPU_SAMPLE_BUFFER_COUNT;
