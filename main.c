@@ -5,7 +5,7 @@
 
 #include "retro_heap.h"
 
-int launch(const char* rom) {
+struct gb* gb_load(const char* rom, uint16_t* frame_buffer) {
      struct gb *gb;
      unsigned i;
 
@@ -14,8 +14,8 @@ int launch(const char* rom) {
       * it remains visible to all threads no matter what. */
      gb = rh_calloc(1, sizeof(*gb));
      if (gb == NULL) {
-          perror("calloc failed");
-          return EXIT_FAILURE;
+          printf("calloc failed");
+          return 0;
      }
 
      /* Initialize the semaphores before we start the frontend */
@@ -31,7 +31,7 @@ int launch(const char* rom) {
           //sem_init(&buf->ready, 0, 1);
      }
 
-     gb_sdl_frontend_init(gb);
+     gb_sdl_frontend_init(gb, frame_buffer);
 
 
      gb_cart_load(gb, rom);
@@ -50,18 +50,26 @@ int launch(const char* rom) {
      gb->double_speed = false;
      gb->speed_switch_pending = false;
 
-     while (!gb->quit) {
-          gb->frontend.refresh_input(gb);
+     return gb;
+}
 
-          /* We refresh the input at 120Hz. This is a trade-off, if we refresh
-           * faster we'll reduce latency at the cost of performance. */
-          gb_cpu_run_cycles(gb, GB_CPU_FREQ_HZ / 120);
-     }
+bool gb_update(struct gb* gb, int frames)
+{
+     gb->frontend.refresh_input(gb);
 
-     gb->frontend.destroy(gb);
-     gb_cart_unload(gb);
+     /* We refresh the input at 120Hz. This is a trade-off, if we refresh
+      * faster we'll reduce latency at the cost of performance. */
+     gb_cpu_run_cycles(gb, (GB_CPU_FREQ_HZ * frames / 60) );
 
-     rh_free(gb);
+     return gb->quit;
 
-     return 0;
+}
+
+void gb_unload(struct gb* gb)
+{
+        gb->frontend.destroy(gb);
+        gb_cart_unload(gb);
+
+        rh_free(gb);
+
 }

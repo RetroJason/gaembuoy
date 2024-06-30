@@ -139,7 +139,9 @@ static uint16_t gb_memory_iram_off(struct gb *gb, uint16_t off) {
 /* Read one byte from memory at `addr` */
 uint8_t gb_memory_readb(struct gb *gb, uint16_t addr) {
      if (addr >= ROM_BASE && addr < ROM_END) {
-          return gb_cart_rom_readb(gb, addr - ROM_BASE);
+          //return gb_cart_rom_readb(gb, addr - ROM_BASE);
+          return gb->cart.readb(&gb->cart, addr - ROM_BASE);
+
      }
 
      if (addr >= ZRAM_BASE && addr < ZRAM_END) {

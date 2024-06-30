@@ -172,7 +172,7 @@ void gb_rtc_write(struct gb *gb, unsigned r, uint8_t v) {
 
 static void gb_dump_u8(FILE_PTR *f, uint8_t v) {
      if (FWRITE(&v, 1, 1, f) < 0) {
-          perror("FWRITE failed");
+          printf("FWRITE failed");
           die();
      }
 }

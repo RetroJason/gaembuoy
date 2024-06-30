@@ -10,35 +10,44 @@ struct gb_sdl_context {
 //     SDL_Texture *canvas;
 //     SDL_GameController *controller;
 //     SDL_AudioSpec audio_spec;
-//     SDL_AudioDeviceID audio_device;
-     uint32_t pixels[GB_LCD_WIDTH * GB_LCD_HEIGHT * UPSCALE_FACTOR * UPSCALE_FACTOR];
+//     SDL_AudioDevi;
+        uint16_t* pixels;
      /* Index of the next audio buffer we want to play */
      unsigned audio_buf_index;
 };
+
+
+#define RGB565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | (((b) & 0xF8) >> 3))
 
 static void gb_sdl_draw_line_dmg(struct gb *gb, unsigned ly,
                                  union gb_gpu_color line[GB_LCD_WIDTH]) {
      struct gb_sdl_context *ctx = gb->frontend.data;
      unsigned i;
-     unsigned x;
-     unsigned y;
 
-     static const uint32_t col_map[4] = {
-          [GB_COL_WHITE]     = 0xff75a32c,
-          [GB_COL_LIGHTGREY] = 0xff387a21,
-          [GB_COL_DARKGREY]  = 0xff255116,
-          [GB_COL_BLACK]     = 0xff12280b,
-     };
+static const uint16_t col_map[4] = {
+    [GB_COL_WHITE]     = RGB565(0x75, 0xA3, 0x2C),
+    [GB_COL_LIGHTGREY] = RGB565(0x38, 0x7A, 0x21),
+    [GB_COL_DARKGREY]  = RGB565(0x25, 0x51, 0x16),
+    [GB_COL_BLACK]     = RGB565(0x12, 0x28, 0x0B),
+};
 
-     for (i = 0; i < GB_LCD_WIDTH; i++) {
-          for (y = 0; y < UPSCALE_FACTOR; y++) {
-               for (x = 0; x < UPSCALE_FACTOR; x++) {
-                    ctx->pixels[(ly + y) * GB_LCD_WIDTH * UPSCALE_FACTOR + i + x] = col_map[line[i].dmg_color];
-               }
-          }
+
+     for (i = 0; i < GB_LCD_WIDTH; i++)
+     {
+          ctx->pixels[ly*368 + i] = col_map[line[i].dmg_color];
      }
+
+
 }
 
+static inline rgb555to565(uint16_t c)
+{
+        uint16_t r = (c & 0x1f) << 11;
+        uint16_t g = ((c >> 5) & 0x1f) << 6;
+        uint16_t b = ((c >> 10) & 0x1f);
+
+        return r | g | b;
+}
 static uint32_t gb_sdl_5_to_8bits(uint32_t v) {
      return (v << 3) | (v >> 2);
 }
@@ -66,18 +75,26 @@ static void gb_sdl_draw_line_gbc(struct gb *gb, unsigned ly,
                                  union gb_gpu_color line[GB_LCD_WIDTH]) {
      struct gb_sdl_context *ctx = gb->frontend.data;
      unsigned i;
-     unsigned x;
-     unsigned y;
 
-     for (i = 0; i < GB_LCD_WIDTH; i++) {
-          uint16_t c = line[i].gbc_color;
+     ly <<= 1;
 
-          for (y = 0; y < UPSCALE_FACTOR; y++) {
-               for (x = 0; x < UPSCALE_FACTOR; x++) {
-                    ctx->pixels[(ly + y) * GB_LCD_WIDTH * UPSCALE_FACTOR + i + x] = gb_sdl_gbc_to_xrgb8888(c);
-               }
-          }
+     uint16_t* l1 = &ctx->pixels[(ly + (448-GB_LCD_HEIGHT*2)/2)  * 368 + (368-GB_LCD_WIDTH*2)/2];
+     uint16_t* l2 = l1 + 368;
+
+     uint16_t* end = l1 + GB_LCD_WIDTH * 2;
+     uint16_t* src = (uint16_t*)&line[0];
+
+     while(l1<end)
+     {
+           uint16_t c = rgb555to565(*src++);
+
+          *l1++ = c;
+          *l1++ = c;
+          *l2++ = c;
+          *l2++ = c;
      }
+
+
 }
 
 //static void gb_sdl_handle_key(struct gb *gb, SDL_Keycode key, bool pressed) {
@@ -286,19 +303,20 @@ static void gb_sdl_audio_callback(void *userdata,
 //     }
 }
 
-void gb_sdl_frontend_init(struct gb *gb) {
+void gb_sdl_frontend_init(struct gb *gb, uint16_t* frame_buffer) {
      struct gb_sdl_context *ctx;
 //     SDL_AudioSpec want;
 //
       ctx = rh_malloc(sizeof(*ctx));
      if (ctx == NULL) {
-          perror("Malloc failed");
+          printf("Malloc failed");
           die();
      }
 
      gb->frontend.data = ctx;
 
      ctx->audio_buf_index = 0;
+     ctx->pixels = frame_buffer;
 //
 //     if (SDL_Init(SDL_INIT_VIDEO |
 //                  SDL_INIT_GAMECONTROLLER |

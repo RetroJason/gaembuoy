@@ -49,6 +49,13 @@ static void gb_cart_get_rom_title(struct gb *gb, char title[17]) {
      title[i] = '\0';
 }
 
+
+static uint8_t readbmmc5(struct gb_cart *cart, uint16_t addr);
+static uint8_t readbmmc1(struct gb_cart *cart, uint16_t addr);
+static uint8_t readbmmc3(struct gb_cart *cart, uint16_t addr);
+static uint8_t readsimple(struct gb_cart *cart, uint16_t addr);
+
+
 void gb_cart_load(struct gb *gb, const char *rom_path) {
      struct gb_cart *cart = &gb->cart;
 
@@ -73,19 +80,15 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      has_battery_backup = false;
 
      if (FOPEN(rom_path, f, LFS_READONLY) < 0) {
-          perror("Can't open ROM file");
+          printf("Can't open ROM file");
           goto error;
      }
 
-     if (FSEEK(f, 0, SEEK_END) == -1 ||
-         (l = FTELL(f)) == -1 ||
-         FSEEK(f, 0, SEEK_SET) == -1) {
-          FCLOSE(f);
-          perror("Can't get ROM file length");
-          goto error;
-     }
+     FSEEK(f, 0, SEEK_END);
+     l = FTELL(f);
+     FSEEK(f, 0, SEEK_SET);
 
-     if (l == 0) {
+     if (l <= 0) {
           fprintf(stderr, "ROM file is empty!\n");
           goto error;
      }
@@ -103,7 +106,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      cart->rom_length = l;
      cart->rom = rh_calloc(1, cart->rom_length);
      if (cart->rom == NULL) {
-          perror("Can't allocate ROM buffer");
+          printf("Can't allocate ROM buffer");
           goto error;
      }
 
@@ -199,11 +202,13 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      switch (cart->rom[GB_CART_OFF_TYPE]) {
      case 0x00:
           cart->model = GB_CART_SIMPLE;
+          cart->readb = readsimple;
           break;
      case 0x01: /* MBC1, no RAM */
      case 0x02: /* MBC1, with RAM */
      case 0x03: /* MBC1, with RAM and battery backup */
           cart->model = GB_CART_MBC1;
+          cart->readb = readbmmc1;
           break;
      case 0x05: /* MBC2 */
      case 0x06: /* MBC2 with battery backup */
@@ -213,6 +218,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
           /* Allocate 512 bytes for convenience, but only the low 4 bits should
            * be used */
           cart->ram_length = 512;
+          cart->readb = readbmmc1;
           break;
      case 0x0f: /* MBC3, with battery backup and RTC */
      case 0x10: /* MBC3, with RAM, battery backup and RTC */
@@ -220,11 +226,13 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      case 0x12: /* MBC3, with RAM */
      case 0x13: /* MBC3, with RAM and battery backup */
           cart->model = GB_CART_MBC3;
+          cart->readb = readbmmc3;
           break;
      case 0x19: /* MBC5, no RAM */
      case 0x1a: /* MBC5, with RAM */
      case 0x1b: /* MBC5, with RAM and battery backup */
           cart->model = GB_CART_MBC5;
+          cart->readb = readbmmc5;
           break;
      default:
           fprintf(stderr, "Unsupported cartridge type %x\n",
@@ -257,7 +265,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      if (cart->ram_length > 0) {
           cart->ram = rh_calloc(1, cart->ram_length);
           if (cart->ram == NULL) {
-               perror("Can't allocate RAM buffer");
+               printf("Can't allocate RAM buffer");
                goto error;
           }
      } else if (!cart->has_rtc) {
@@ -277,7 +285,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
 
           cart->save_file = rh_malloc(path_len + strlen(".sav"));
           if (cart->save_file == NULL) {
-               perror("malloc failed");
+               printf("malloc failed");
                goto error;
           }
 
@@ -296,26 +304,27 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
 
           /* First we attempt to load the save file if it already exists */
           
+          FILE_PTR fp;
 
-          if (FOPEN(cart->save_file, f, LFS_READONLY) < 0) {
+          if (FOPEN(cart->save_file, &fp, LFS_READONLY) == 0) {
                /* The file exists, load RAM contents */
                if (cart->ram_length > 0) {
-                    nread = FREAD(cart->ram, 1, cart->ram_length, f);
+                    nread = FREAD(cart->ram, 1, cart->ram_length, &fp);
                } else {
                     nread = 0;
                }
 
                if (nread != cart->ram_length) {
                     fprintf(stderr, "RAM save file is too small!\n");
-                    FCLOSE(f);
+                    FCLOSE(&fp);
                     goto error;
                }
 
                if (cart->has_rtc) {
-                    gb_rtc_load(gb, f);
+                    gb_rtc_load(gb, &fp);
                }
 
-               FCLOSE(f);
+               FCLOSE(&fp);
                printf("Loaded RAM save from '%s'\n", cart->save_file);
           } else {
                /* No save file */
@@ -370,6 +379,9 @@ static void gb_cart_ram_save(struct gb *gb) {
      FILE_PTR F;
      FILE_PTR *f = &F;
 
+     //we dont support save files yet
+     return;
+
      if (cart->save_file == NULL) {
           /* No battery backup, nothing to do */
           return;
@@ -383,13 +395,13 @@ static void gb_cart_ram_save(struct gb *gb) {
      if (FOPEN(cart->save_file, f, LFS_READONLY) < 0) {
           fprintf(stderr, "Can't create or open save file '%s': %s",
                   cart->save_file, strerror(errno));
-          die();
+         // die();
      }
 
      if (cart->ram_length > 0) {
           /* Dump RAM to file */
           if (FWRITE(cart->ram, 1, cart->ram_length, f) < 0) {
-               perror("FWRITE failed");
+               printf("FWRITE failed");
                FCLOSE(f);
                die();
           }
@@ -431,8 +443,67 @@ void gb_cart_sync(struct gb *gb) {
      gb_sync_next(gb, GB_SYNC_CART, GB_SYNC_NEVER);
 }
 
-uint8_t gb_cart_rom_readb(struct gb *gb, uint16_t addr) {
-     struct gb_cart *cart = &gb->cart;
+static uint8_t readbmmc5(struct gb_cart *cart, uint16_t addr)
+{
+        uint32_t off = addr;
+
+        if (addr >= GB_ROM_BANK_SIZE) {
+             /* Bank 0 can be remapped as bank 1 with this controller, so we
+              * need to be careful to handle that case correctly */
+             unsigned bank = cart->cur_rom_bank % cart->rom_banks;
+
+             off -= GB_ROM_BANK_SIZE;
+             off += bank * GB_ROM_BANK_SIZE;
+        }
+
+        return cart->rom[off];
+}
+
+static uint8_t readbmmc1(struct gb_cart *cart, uint16_t addr)
+{
+        if (addr >= GB_ROM_BANK_SIZE)
+        {
+              /* Bank 1 can be remapped through this controller */
+              unsigned bank = cart->cur_rom_bank;
+
+              if (cart->mbc1_bank_ram) {
+                   /* When MBC1 is configured to bank RAM it can only address
+                    * 16 ROM banks */
+                   bank %= 32;
+              } else {
+                   bank %= 128;
+              }
+
+              if (bank == 0) {
+                   /* Bank 0 can't be mirrored that way, using a bank of 0 is
+                    * the same thing as using 1 */
+                   bank = 1;
+              }
+
+              bank %= cart->rom_banks;
+
+              addr += (bank - 1) * GB_ROM_BANK_SIZE;
+         }
+
+        return cart->rom[addr];
+}
+static uint8_t readbmmc3(struct gb_cart *cart, uint16_t addr)
+{
+        if (addr >= GB_ROM_BANK_SIZE)
+        {
+            addr += (cart->cur_rom_bank - 1) * GB_ROM_BANK_SIZE;
+        }
+
+        return cart->rom[addr];
+}
+
+static uint8_t readsimple(struct gb_cart *cart, uint16_t addr)
+{
+        return cart->rom[addr];
+}
+
+uint8_t gb_cart_rom_readb(struct gb_cart *cart, uint16_t addr) {
+
      unsigned rom_off = addr;
 
      switch (cart->model) {

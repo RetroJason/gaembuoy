@@ -48,12 +48,14 @@ struct gb_cart {
      bool has_rtc;
      /* RTC state (if the cart has one) */
      struct gb_rtc rtc;
+
+     uint8_t (*readb) (struct gb_cart* cart, uint16_t addr);
 };
 
 void gb_cart_load(struct gb *gb, const char *rom_path);
 void gb_cart_unload(struct gb *gb);
 void gb_cart_sync(struct gb *gb);
-uint8_t gb_cart_rom_readb(struct gb *gb, uint16_t addr);
+uint8_t gb_cart_rom_readb(struct gb_cart *cart, uint16_t addr);
 void gb_cart_rom_writeb(struct gb *gb, uint16_t addr, uint8_t v);
 uint8_t gb_cart_ram_readb(struct gb *gb, uint16_t addr);
 void gb_cart_ram_writeb(struct gb *gb, uint16_t addr, uint8_t v);
