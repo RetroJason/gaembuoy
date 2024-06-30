@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "gb.h"
 
-#define UPSCALE_FACTOR 4
+#define UPSCALE_FACTOR 1
 
 struct gb_sdl_context {
 //     SDL_Window *window;
@@ -290,15 +290,15 @@ void gb_sdl_frontend_init(struct gb *gb) {
      struct gb_sdl_context *ctx;
 //     SDL_AudioSpec want;
 //
-//     ctx = malloc(sizeof(*ctx));
-//     if (ctx == NULL) {
-//          perror("Malloc failed");
-//          die();
-//     }
-//
-//     gb->frontend.data = ctx;
-//
-//     ctx->audio_buf_index = 0;
+      ctx = rh_malloc(sizeof(*ctx));
+     if (ctx == NULL) {
+          perror("Malloc failed");
+          die();
+     }
+
+     gb->frontend.data = ctx;
+
+     ctx->audio_buf_index = 0;
 //
 //     if (SDL_Init(SDL_INIT_VIDEO |
 //                  SDL_INIT_GAMECONTROLLER |
@@ -344,11 +344,11 @@ void gb_sdl_frontend_init(struct gb *gb) {
 //     /* Start audio */
 //     SDL_PauseAudioDevice(ctx->audio_device, 0);
 //
-//     gb->frontend.draw_line_dmg = gb_sdl_draw_line_dmg;
-//     gb->frontend.draw_line_gbc = gb_sdl_draw_line_gbc;
-//     gb->frontend.flip = gb_sdl_flip;
-//     gb->frontend.refresh_input = gb_sdl_refresh_input;
-//     gb->frontend.destroy = gb_sdl_destroy;
+     gb->frontend.draw_line_dmg = gb_sdl_draw_line_dmg;
+     gb->frontend.draw_line_gbc = gb_sdl_draw_line_gbc;
+     gb->frontend.flip = gb_sdl_flip;
+     gb->frontend.refresh_input = gb_sdl_refresh_input;
+     gb->frontend.destroy = gb_sdl_destroy;
 //
 //     /* Clear the canvas */
 //     memset(ctx->pixels, 0, sizeof(ctx->pixels));

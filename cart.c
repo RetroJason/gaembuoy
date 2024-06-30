@@ -6,6 +6,7 @@
 #include "gb.h"
 
 #include "retro_heap.h"
+#include "file.h"
 
 /* 16KB ROM banks */
 #define GB_ROM_BANK_SIZE (16 * 1024)
@@ -17,7 +18,7 @@
 
 /* I think the biggest licensed GB cartridge is 8MB but let's add a margin in
  * case there are homebrews with even bigger carts. */
-#define GB_CART_MAX_SIZE (32U * 1024 * 1024)
+#define GB_CART_MAX_SIZE (8U * 1024 * 1024)
 
 #define GB_CART_OFF_TITLE     0x134
 #define GB_CART_OFF_GBC       0x143
@@ -50,7 +51,11 @@ static void gb_cart_get_rom_title(struct gb *gb, char title[17]) {
 
 void gb_cart_load(struct gb *gb, const char *rom_path) {
      struct gb_cart *cart = &gb->cart;
-     FILE *f = fopen(rom_path, "rb");
+
+     FILE_PTR F;
+     FILE_PTR *f = &F;
+     
+
      long l;
      size_t nread;
      char rom_title[17];
@@ -67,15 +72,15 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      cart->has_rtc = false;
      has_battery_backup = false;
 
-     if (f == NULL) {
+     if (FOPEN(rom_path, f, LFS_READONLY) < 0) {
           perror("Can't open ROM file");
           goto error;
      }
 
-     if (fseek(f, 0, SEEK_END) == -1 ||
-         (l = ftell(f)) == -1 ||
-         fseek(f, 0, SEEK_SET) == -1) {
-          fclose(f);
+     if (FSEEK(f, 0, SEEK_END) == -1 ||
+         (l = FTELL(f)) == -1 ||
+         FSEEK(f, 0, SEEK_SET) == -1) {
+          FCLOSE(f);
           perror("Can't get ROM file length");
           goto error;
      }
@@ -102,7 +107,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
           goto error;
      }
 
-     nread = fread(cart->rom, 1, cart->rom_length, f);
+     nread = FREAD(cart->rom, 1, cart->rom_length, f);
      if (nread < cart->rom_length) {
           fprintf(stderr,
                   "Failed to load ROM file (read %u bytes, expected %u)\n",
@@ -265,7 +270,9 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
            * of the rom with the extension changed to '.sav'. If no extension is
            * found we simply append '.sav' to the ROM filename */
           const size_t path_len = strlen(rom_path);
-          FILE *f;
+          
+          FILE_PTR F;
+          FILE_PTR *f = &F;
           size_t pos;
 
           cart->save_file = rh_malloc(path_len + strlen(".sav"));
@@ -288,18 +295,19 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
           strcat(cart->save_file, ".sav");
 
           /* First we attempt to load the save file if it already exists */
-          f = fopen(cart->save_file, "rb");
-          if (f != NULL) {
+          
+
+          if (FOPEN(cart->save_file, f, LFS_READONLY) < 0) {
                /* The file exists, load RAM contents */
                if (cart->ram_length > 0) {
-                    nread = fread(cart->ram, 1, cart->ram_length, f);
+                    nread = FREAD(cart->ram, 1, cart->ram_length, f);
                } else {
                     nread = 0;
                }
 
                if (nread != cart->ram_length) {
                     fprintf(stderr, "RAM save file is too small!\n");
-                    fclose(f);
+                    FCLOSE(f);
                     goto error;
                }
 
@@ -307,7 +315,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
                     gb_rtc_load(gb, f);
                }
 
-               fclose(f);
+               FCLOSE(f);
                printf("Loaded RAM save from '%s'\n", cart->save_file);
           } else {
                /* No save file */
@@ -319,7 +327,7 @@ void gb_cart_load(struct gb *gb, const char *rom_path) {
      }
 
      /* Success */
-     fclose(f);
+     FCLOSE(f);
 
      /* See if we have a DMG or GBC game */
      gb->gbc = (cart->rom[GB_CART_OFF_GBC] & 0x80);
@@ -350,7 +358,7 @@ error:
      }
 
      if (f) {
-          fclose(f);
+          FCLOSE(f);
      }
 
      die();
@@ -358,7 +366,9 @@ error:
 
 static void gb_cart_ram_save(struct gb *gb) {
      struct gb_cart *cart = &gb->cart;
-     FILE *f;
+     
+     FILE_PTR F;
+     FILE_PTR *f = &F;
 
      if (cart->save_file == NULL) {
           /* No battery backup, nothing to do */
@@ -370,8 +380,7 @@ static void gb_cart_ram_save(struct gb *gb) {
           return;
      }
 
-     f = fopen(cart->save_file, "wb");
-     if (f == NULL) {
+     if (FOPEN(cart->save_file, f, LFS_READONLY) < 0) {
           fprintf(stderr, "Can't create or open save file '%s': %s",
                   cart->save_file, strerror(errno));
           die();
@@ -379,9 +388,9 @@ static void gb_cart_ram_save(struct gb *gb) {
 
      if (cart->ram_length > 0) {
           /* Dump RAM to file */
-          if (fwrite(cart->ram, 1, cart->ram_length, f) < 0) {
-               perror("fwrite failed");
-               fclose(f);
+          if (FWRITE(cart->ram, 1, cart->ram_length, f) < 0) {
+               perror("FWRITE failed");
+               FCLOSE(f);
                die();
           }
      }
@@ -390,8 +399,8 @@ static void gb_cart_ram_save(struct gb *gb) {
           gb_rtc_dump(gb, f);
      }
 
-     fflush(f);
-     fclose(f);
+     FFLUSH(f);
+     FCLOSE(f);
 
      printf("Saved RAM\n");
      cart->dirty_ram = false;

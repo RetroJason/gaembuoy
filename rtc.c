@@ -1,6 +1,8 @@
 #include <time.h>
 #include "gb.h"
 
+#include "file.h"
+
 static uint64_t gb_rtc_system_time(void) {
      return time(NULL);
 }
@@ -168,17 +170,17 @@ void gb_rtc_write(struct gb *gb, unsigned r, uint8_t v) {
      gb_rtc_latch_date(gb, &date);
 }
 
-static void gb_dump_u8(FILE *f, uint8_t v) {
-     if (fwrite(&v, 1, 1, f) < 0) {
-          perror("fwrite failed");
+static void gb_dump_u8(FILE_PTR *f, uint8_t v) {
+     if (FWRITE(&v, 1, 1, f) < 0) {
+          perror("FWRITE failed");
           die();
      }
 }
 
-static uint8_t gb_load_u8(FILE *f) {
+static uint8_t gb_load_u8(FILE_PTR *f) {
      uint8_t v;
 
-     if (fread(&v, 1, 1, f) < 1) {
+     if (FREAD(&v, 1, 1, f) < 1) {
           fprintf(stderr, "Failed to load RTC state\n");
           return 0;
      }
@@ -186,7 +188,7 @@ static uint8_t gb_load_u8(FILE *f) {
      return v;
 }
 
-static void gb_dump_u64(FILE *f, uint64_t v) {
+static void gb_dump_u64(FILE_PTR *f, uint64_t v) {
      gb_dump_u8(f, v >> 56);
      gb_dump_u8(f, v >> 48);
      gb_dump_u8(f, v >> 40);
@@ -197,7 +199,7 @@ static void gb_dump_u64(FILE *f, uint64_t v) {
      gb_dump_u8(f, v);
 }
 
-static uint64_t gb_load_u64(FILE *f) {
+static uint64_t gb_load_u64(FILE_PTR *f) {
      uint64_t v = 0;
 
      v |= ((uint64_t)gb_load_u8(f)) << 56;
@@ -212,7 +214,7 @@ static uint64_t gb_load_u64(FILE *f) {
      return v;
 }
 
-void gb_rtc_dump(struct gb *gb, FILE *f) {
+void gb_rtc_dump(struct gb *gb, FILE_PTR *f) {
      struct gb_rtc *rtc = &gb->cart.rtc;
 
      gb_dump_u64(f, rtc->base);
@@ -225,7 +227,7 @@ void gb_rtc_dump(struct gb *gb, FILE *f) {
      gb_dump_u8(f, rtc->latched_date.dh);
 }
 
-void gb_rtc_load(struct gb *gb, FILE *f) {
+void gb_rtc_load(struct gb *gb, FILE_PTR *f) {
      struct gb_rtc *rtc = &gb->cart.rtc;
 
      rtc->base = gb_load_u64(f);
